@@ -1,6 +1,6 @@
 import cv2
 import pyttsx3
-import winsound
+from playsound import playsound
 import sounddevice as sd
 import speech_recognition as sr
 from ultralytics import YOLO
@@ -42,7 +42,7 @@ def speech_to_text():
             dtype="int16"
         )
 
-        winsound.Beep(1000, 200)
+        playsound("assets/audio/beep.mp3")
 
         sd.wait()
 
