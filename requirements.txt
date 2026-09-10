@@ -4,5 +4,7 @@ kivymd
 
 pyttsx3
 
+sounddevice
 SpeechRecognition 
 pyaudio
+playsound==1.2.2

@@ -6,33 +6,49 @@ import speech_recognition as sr
 from ultralytics import YOLO
 
 
-def capture_image():
+def capture_image(
+        camera_device_id: int = 0,
+        capture_path: str = "captured_frame.jpg"
+    ):
     camera = cv2.VideoCapture(0)
 
     success, frame = camera.read()
 
     if success:
-        cv2.imwrite("captured_frame.jpg", frame)
+        cv2.imwrite(capture_path, frame)
     camera.release()
 
     cv2.destroyAllWindows()
 
-def detect_objects():
-    model = YOLO("yolov8n.pt")
-    results = model("captured_frame.jpg")
-    results[0].save(filename="annotated_image.jpg")
+def detect_objects(
+        input_image_path: str = "captured_frame.jpg",
+        output_image_path: str = "annotated_image.jpg",
+        yolo_model: str = "yolov8n.pt"
+    ) -> str:
+    model = YOLO(
+        model=yolo_model
+    )
+    results = model(
+        source=input_image_path
+    )
+    return results[0].save(filename=output_image_path)
 
-def text_to_speech(text):
+def text_to_speech(
+        text: str
+    ):
     engine = pyttsx3.init()
-    engine.setProperty("rate", 150)
+    engine.setProperty(
+        name="rate", 
+        value=150
+    )
     engine.say(text)
     engine.runAndWait()
 
-def speech_to_text():
+def speech_to_text(
+        sample_rate: int = 44100,
+        seconds: int = 3
+    ):
     recognizer = sr.Recognizer()
-
-    sample_rate = 44100
-    seconds = 3
 
     while True:
         recording = sd.rec(
