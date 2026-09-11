@@ -12,21 +12,62 @@ BEEP = str("assets/audio/beep.mp3")
 
 class ImagePoiFinder():
     def __init__(self):
-        self.text_to_speech("During program, whenever prompted to speak, please wait until after the beep.")
-        self.text_to_speech("Would you like to capture image now?")
-        should_capture_now = self.speech_to_text()
-    
-        if should_capture_now.lower() == "yes":
+        print("# * * * * * * * * * * * * * * * * * * #")
+        print("# IMAGE POI FINDER")
+        print("# * * * * * * * * * * * * * * * * * * #")
+
+    def run(
+            self    
+        ) -> int:
+        try:
+            # 
+            # Introduce how prompting is done
+            # 
+            self.text_to_speech("During program, whenever prompted to speak, please wait until after the beep.")
+            # 
+            # Does the user want to capture an image now?
+            # 
+            user_has_confirmed = False
+            confirm_fail_count = 0
+            while not user_has_confirmed:
+                self.text_to_speech("Would you like to capture image now?")
+                should_capture_now = self.speech_to_text()
+                # 
+                # If the user answers yes, then break
+                # 
+                if should_capture_now.lower() == "yes":
+                    user_has_confirmed = True
+                # 
+                # If the user doesn't answer yes, after 5 fails exit the program
+                # 
+                else:
+                    confirm_fail_count += 1
+                    user_has_confirmed = False
+                    if confirm_fail_count >= 5:
+                        self.text_to_speech("Confirmation not received after five attempts. Exiting program.")
+                        return -1
+            # 
+            # Capture the image
+            # 
             self.capture_image()
             self.text_to_speech("Image captured.")
             self.text_to_speech("Detecting objects in the captured image.")
+            # 
+            # Detect objects in captured image
+            # 
             self.detect_objects()
+            
+            self.text_to_speech("What object do you want to detect?")
+            object_to_detect = self.speech_to_text()
+            if object_to_detect != "":
+                self.text_to_speech(f"You want to detect: {object_to_detect}")
+            return 0
+        except KeyboardInterrupt:
+            return 0
+        except Exception as e:
+            print(e)
+            return -1
         
-        self.text_to_speech("What object do you want to detect?")
-        object_to_detect = self.speech_to_text()
-        if object_to_detect != "":
-            self.text_to_speech(f"You want to detect: {object_to_detect}")
-
     def capture_image(
             self,
             camera_device_id: int = 0,
@@ -41,19 +82,22 @@ class ImagePoiFinder():
         Returns:
             int: _description_
         """
-        return_code = 0
-        camera = cv2.VideoCapture(0)
+        try:
+            return_code = 0
+            camera = cv2.VideoCapture(0)
 
-        success, frame = camera.read()
+            success, frame = camera.read()
 
-        if success:
-            cv2.imwrite(capture_path, frame)
-        else:
-            return_code = -1
-        camera.release()
+            if success:
+                cv2.imwrite(capture_path, frame)
+            else:
+                return_code = -1
+            camera.release()
 
-        cv2.destroyAllWindows()
-        return return_code
+            cv2.destroyAllWindows()
+            return return_code
+        except Exception as e:
+            return -1
 
     def detect_objects(
             self,
@@ -71,13 +115,16 @@ class ImagePoiFinder():
         Returns:
             str: path of bb image
         """
-        model = ultralytics.YOLO(
-            model=yolo_model
-        )
-        results = model(
-            source=input_image_path
-        )
-        return results[0].save(filename=output_image_path)
+        try:
+            model = ultralytics.YOLO(
+                model=yolo_model
+            )
+            results = model(
+                source=input_image_path
+            )
+            return results[0].save(filename=output_image_path)
+        except Exception as e:
+            return ""
 
     def text_to_speech(
             self,
@@ -129,7 +176,7 @@ class ImagePoiFinder():
                 dtype="int16"
             )
 
-            playsound.playsound(BEEP)
+            playsound.playsound(sound=BEEP)
 
             sounddevice.wait()
 
@@ -147,7 +194,9 @@ class ImagePoiFinder():
                 self.text_to_speech("Could not understand. Please speak again after the beep.")
 
 def main():
-    ImagePoiFinder()
+    image_poi_finder = ImagePoiFinder()
+    # image_poi_finder.detect_objects(input_image_path="assets/images/doggie.png")
+    image_poi_finder.run()
 
 if __name__ == "__main__":
     main()
