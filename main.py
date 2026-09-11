@@ -16,22 +16,22 @@ class ImagePoiFinder():
         print("# IMAGE POI FINDER")
         print("# * * * * * * * * * * * * * * * * * * #")
 
-    def run(
+    def Run(
             self    
         ) -> int:
         try:
             # 
             # Introduce how prompting is done
             # 
-            self.text_to_speech("During program, whenever prompted to speak, please wait until after the beep.")
+            self.TextToSpeech("During program, whenever prompted to speak, please wait until after the beep.")
             # 
             # Does the user want to capture an image now?
             # 
             user_has_confirmed = False
             confirm_fail_count = 0
             while not user_has_confirmed:
-                self.text_to_speech("Would you like to capture image now?")
-                should_capture_now = self.speech_to_text()
+                self.TextToSpeech("Would you like to capture image now?")
+                should_capture_now = self.SpeechToText()
                 # 
                 # If the user answers yes, then break
                 # 
@@ -44,23 +44,23 @@ class ImagePoiFinder():
                     confirm_fail_count += 1
                     user_has_confirmed = False
                     if confirm_fail_count >= 5:
-                        self.text_to_speech("Confirmation not received after five attempts. Exiting program.")
+                        self.TextToSpeech("Confirmation not received after five attempts. Exiting program.")
                         return -1
             # 
             # Capture the image
             # 
-            self.capture_image()
-            self.text_to_speech("Image captured.")
-            self.text_to_speech("Detecting objects in the captured image.")
+            self.CaptureImage()
+            self.TextToSpeech("Image captured.")
+            self.TextToSpeech("Detecting objects in the captured image.")
             # 
             # Detect objects in captured image
             # 
-            self.detect_objects()
+            self.DetectObjects()
             
-            self.text_to_speech("What object do you want to detect?")
-            object_to_detect = self.speech_to_text()
+            self.TextToSpeech("What object do you want to detect?")
+            object_to_detect = self.SpeechToText()
             if object_to_detect != "":
-                self.text_to_speech(f"You want to detect: {object_to_detect}")
+                self.TextToSpeech(f"You want to detect: {object_to_detect}")
             return 0
         except KeyboardInterrupt:
             return 0
@@ -68,7 +68,7 @@ class ImagePoiFinder():
             print(e)
             return -1
         
-    def capture_image(
+    def CaptureImage(
             self,
             camera_device_id: int = 0,
             capture_path: str = "assets/images/captured_frame.jpg"
@@ -99,12 +99,12 @@ class ImagePoiFinder():
         except Exception as e:
             return -1
 
-    def detect_objects(
+    def DetectObjects(
             self,
             input_image_path: str = "assets/images/captured_frame.jpg",
             output_image_path: str = "assets/images/annotated_image.jpg",
             yolo_model: str = "yolov8n.pt"
-        ) -> str:
+        ):
         """Detect objects in image and return the image with bounding boxes
 
         Args:
@@ -122,11 +122,87 @@ class ImagePoiFinder():
             results = model(
                 source=input_image_path
             )
-            return results[0].save(filename=output_image_path)
+            
+            result = results[0]
+
+            result.save(filename=output_image_path)
+
+            img_height, img_width = result.orig_shape
+
+            detections = []
+            for box in result.boxes:
+                # [x_min, y_min, x_max, y_max]
+                box_range = box.xyxy[0].tolist()
+
+                # [x_center, y_center, width, height]
+                xywh = box.xywh[0].tolist()
+                center_coords = (xywh[0], xywh[1])
+                #
+                # Get box label
+                #
+                class_id = int(box.cls[0].item())
+                label = result.names[class_id]
+                quadrants = self.GetBbQuadPercentages(
+                    box_range=box_range,
+                    img_width=img_width,
+                    img_height=img_height
+                )
+                detections.append(
+                    {
+                        "label": label,
+                        "center": center_coords,
+                        "quadrants": quadrants
+                    }
+                )
+            return detections
         except Exception as e:
             return ""
+        
+    def GetBbQuadPercentages(
+            self, 
+            box_range: list[int],
+            img_width: int,
+            img_height: int
+        ):
+        x_min, y_min, x_max, y_max = box_range
+        box_area = (x_max - x_min) * (y_max - y_min)
 
-    def text_to_speech(
+        if box_area <= 0:
+            return {
+                "top_left": 0.0,
+                "top_right": 0.0,
+                "bottom_left": 0.0,
+                "bottom_right": 0.0,
+            }
+
+        mid_x = img_width / 2.0
+        mid_y = img_height / 2.0
+        # 
+        # Quadrant boundaries: (x_start, x_end, y_start, y_end)
+        # 
+        quadrants = {
+            "top_left": (0, mid_x, 0, mid_y),
+            "top_right": (mid_x, img_width, 0, mid_y),
+            "bottom_left": (0, mid_x, mid_y, img_height),
+            "bottom_right": (mid_x, img_width, mid_y, img_height),
+        }
+
+        percentages = {}
+        for quad_name, (q_x_min, q_x_max, q_y_min, q_y_max) in quadrants.items():
+            # 
+            # Find width and height of the overlapping rectangle
+            # 
+            overlap_width = max(0.0, min(x_max, q_x_max) - max(x_min, q_x_min))
+            overlap_height = max(0.0, min(y_max, q_y_max) - max(y_min, q_y_min))
+            inter_area = overlap_width * overlap_height
+            # 
+            # Calculate percentage of total box area
+            # 
+            percentages[quad_name] = round((inter_area / box_area) * 100, 2)
+
+        return percentages
+
+    def TextToSpeech(
             self,
             text: str
         ) -> int:
@@ -152,7 +228,7 @@ class ImagePoiFinder():
             print(e)
             return -1
 
-    def speech_to_text(
+    def SpeechToText(
             self,
             sample_rate: int = 44100,
             seconds: int = 3
@@ -191,12 +267,12 @@ class ImagePoiFinder():
                 return text
 
             except speech_recognition.UnknownValueError:
-                self.text_to_speech("Could not understand. Please speak again after the beep.")
+                self.TextToSpeech("Could not understand. Please speak again after the beep.")
 
 def main():
     image_poi_finder = ImagePoiFinder()
-    # image_poi_finder.detect_objects(input_image_path="assets/images/doggie.png")
-    image_poi_finder.run()
+    image_poi_finder.DetectObjects(input_image_path="assets/images/doggie.png")
+    # image_poi_finder.run()
 
 if __name__ == "__main__":
     main()
