@@ -7,6 +7,7 @@ import playsound
 import sounddevice
 import speech_recognition
 import ultralytics
+import os
 from datetime import datetime
 
 BEEP = str("assets/audio/beep.mp3")
@@ -52,10 +53,13 @@ class ImagePoiFinder():
             # 
             # Capture the image
             #
-            capture_time = datetime.now().strftime("%H:%M:%S")
+            capture_time = datetime.now().strftime("%H_%M_%S")
+            os.makedirs(name=captures_dir, exist_ok=True)
             capture_path = f"{captures_dir}/capture_{capture_time}.jpg"
+            os.makedirs(name=annotations_dir, exist_ok=True)
             annotated_capture_path = f"{annotations_dir}/annotated_{capture_time}.jpg"
-            if self.CaptureImage() != 0:
+            capture_status = self.CaptureImage(capture_path=capture_path)
+            if capture_status != 0:
                 self.TextToSpeech("Image failed to capture. Exiting program.")
                 return -1
             self.TextToSpeech("Image captured.")
@@ -82,17 +86,12 @@ class ImagePoiFinder():
                         detections = matching_detections
                     else:
                         self.TextToSpeech(f"'{object_to_detect}' is not in the image.")
-                
-                self.TextToSpeech(f"{len(detections)} objects found in the image.")
+                if len(detections) == 1:
+                    self.TextToSpeech(f"{len(detections)} object found in the image.")
+                else:
+                    self.TextToSpeech(f"{len(detections)} objects found in the image.")
                 for detection in detections:
-                    label = detections["label"]
-                    quadrants = detections["quadrants"]
-                    top_left_percent = quadrants["top_left"]
-                    top_right_percent = quadrants["top_right"]
-                    bottom_left_percent = quadrants["bottom_left"]
-                    bottom_right_percent = quadrants["bottom_right"]
-                    if ((top_left_percent > 15) and (top_right_percent > 15) and (bottom_left_percent > 15) and (bottom_right_percent > 15)):
-                        self.TextToSpeech(f"There is a {label} at the center")
+                    self.TextToSpeech(f"There is a {detection["label"]} at the {detection["region"]}")
                 # 
                 # Ask if the user wants to take another capture
                 # 
@@ -104,7 +103,6 @@ class ImagePoiFinder():
                 else:
                     self.TextToSpeech(f"Exiting program. Captures saved to {captures_dir}.")
                     return 0
-
             else:
                 self.TextToSpeech("No objects found in the image. Would you like to take another image?")
                 take_another_image = self.SpeechToText()
@@ -142,6 +140,7 @@ class ImagePoiFinder():
             success, frame = camera.read()
 
             if success:
+                print(capture_path)
                 cv2.imwrite(capture_path, frame)
             else:
                 return_code = -1
@@ -195,21 +194,65 @@ class ImagePoiFinder():
                 #
                 class_id = int(box.cls[0].item())
                 label = result.names[class_id]
-                quadrants = self.GetBbQuadPercentages(
-                    box_range=box_range,
+                region = self.GetBbRegion(
+                    center_coords=center_coords,
                     img_width=img_width,
                     img_height=img_height
                 )
+                # quadrants = self.GetBbQuadPercentages(
+                #     box_range=box_range,
+                #     img_width=img_width,
+                #     img_height=img_height
+                # )
                 detections.append(
                     {
                         "label": label,
-                        "center": center_coords,
-                        "quadrants": quadrants
+                        "position": center_coords,
+                        "region": region
+                        # "quadrants": quadrants
                     }
                 )
+            print(detections)
             return detections
         except Exception as e:
             return ""
+
+    def GetBbRegion(
+            self,
+            center_coords: list[int], 
+            img_width: int, 
+            img_height: int,
+            center_width: float = 0.2
+        ) -> str:
+        center_x, center_y = center_coords
+        # 
+        # Define boundaries for center box
+        # 
+        center_x_min = img_width * (center_width * 2)
+        center_x_max = img_width * (center_width * 3)
+        center_y_min = img_height * (center_width * 2)
+        center_y_max = img_height * (center_width * 3)
+        # 
+        # Check if center point falls inside the center zone
+        # 
+        if (center_x_min <= center_x <= center_x_max) and (
+            center_y_min <= center_y <= center_y_max
+        ):
+            return "center"
+        # 
+        # Otherwise, assign based on standard quadrant midpoints
+        # 
+        mid_x = img_width / 2.0
+        mid_y = img_height / 2.0
+
+        if center_x < mid_x and center_y < mid_y:
+            return "top_left"
+        elif center_x >= mid_x and center_y < mid_y:
+            return "top_right"
+        elif center_x < mid_x and center_y >= mid_y:
+            return "bottom_left"
+        else:
+            return "bottom_right"
         
     def GetBbQuadPercentages(
             self, 
@@ -324,8 +367,8 @@ class ImagePoiFinder():
 
 def main():
     image_poi_finder = ImagePoiFinder()
-    image_poi_finder.DetectObjects(input_image_path="assets/images/doggie.png")
-    # image_poi_finder.run()
+    # image_poi_finder.DetectObjects(input_image_path="assets/images/doggie.png")
+    image_poi_finder.Run()
 
 if __name__ == "__main__":
     main()
