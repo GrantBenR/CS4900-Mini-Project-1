@@ -55,12 +55,25 @@ class ImagePoiFinder():
             # 
             # Detect objects in captured image
             # 
-            self.DetectObjects()
-            
-            self.TextToSpeech("What object do you want to detect?")
-            object_to_detect = self.SpeechToText()
-            if object_to_detect != "":
-                self.TextToSpeech(f"You want to detect: {object_to_detect}")
+            detections = self.DetectObjects()
+            if len(detections) > 0:
+                # 
+                # Have the user specify a class of objects to look for. If there are none, list all objects
+                # 
+                self.TextToSpeech("What object do you want to detect?")
+                object_to_detect = self.SpeechToText()
+                if object_to_detect != "":
+                    matching_detections = [d for d in detections if d.get(object_to_detect)]
+                    if len(matching_detections) > 0:
+                        detections = matching_detections
+                    else:
+                        self.TextToSpeech(f"{object_to_detect} is not in the object")
+                self.TextToSpeech(f"{len(detections)} objects found in the image.")
+            else:
+                self.TextToSpeech("No objects found in the image. Would you like to take another image?")
+                take_another_image = self.SpeechToText()
+                if take_another_image == "yes":
+                    self.Run()
             return 0
         except KeyboardInterrupt:
             return 0
@@ -104,7 +117,7 @@ class ImagePoiFinder():
             input_image_path: str = "assets/images/captured_frame.jpg",
             output_image_path: str = "assets/images/annotated_image.jpg",
             yolo_model: str = "yolov8n.pt"
-        ):
+        ) -> list[dict]:
         """Detect objects in image and return the image with bounding boxes
 
         Args:
@@ -264,7 +277,7 @@ class ImagePoiFinder():
 
             try:
                 text = recognizer.recognize_google(audio)
-                return text
+                return str(text).lower().strip()
 
             except speech_recognition.UnknownValueError:
                 self.TextToSpeech("Could not understand. Please speak again after the beep.")
