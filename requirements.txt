@@ -1,10 +1,10 @@
+# Image ML
 ultralytics
-
-kivymd
-
+# speech <--> text
 pyttsx3
-
 sounddevice
 SpeechRecognition 
 pyaudio
 playsound==1.2.2
+# GUI
+# kivymd

@@ -36,6 +36,7 @@ def detect_objects(
 def text_to_speech(
         text: str
     ):
+    print(f"- {text}")
     engine = pyttsx3.init()
     engine.setProperty(
         name="rate", 
