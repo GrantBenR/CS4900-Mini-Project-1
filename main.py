@@ -7,6 +7,7 @@ import playsound
 import sounddevice
 import speech_recognition
 import ultralytics
+from datetime import datetime
 
 BEEP = str("assets/audio/beep.mp3")
 
@@ -17,7 +18,9 @@ class ImagePoiFinder():
         print("# * * * * * * * * * * * * * * * * * * #")
 
     def Run(
-            self    
+            self,
+            captures_dir: str = "images/captures",
+            annotations_dir: str = "images/annotated"
         ) -> int:
         try:
             # 
@@ -35,7 +38,7 @@ class ImagePoiFinder():
                 # 
                 # If the user answers yes, then break
                 # 
-                if should_capture_now.lower() == "yes":
+                if should_capture_now == "yes":
                     user_has_confirmed = True
                 # 
                 # If the user doesn't answer yes, after 5 fails exit the program
@@ -48,14 +51,22 @@ class ImagePoiFinder():
                         return -1
             # 
             # Capture the image
-            # 
-            self.CaptureImage()
+            #
+            capture_time = datetime.now().strftime("%H:%M:%S")
+            capture_path = f"{captures_dir}/capture_{capture_time}.jpg"
+            annotated_capture_path = f"{annotations_dir}/annotated_{capture_time}.jpg"
+            if self.CaptureImage() != 0:
+                self.TextToSpeech("Image failed to capture. Exiting program.")
+                return -1
             self.TextToSpeech("Image captured.")
             self.TextToSpeech("Detecting objects in the captured image.")
             # 
             # Detect objects in captured image
             # 
-            detections = self.DetectObjects()
+            detections = self.DetectObjects(
+                input_image_path=capture_path,
+                output_image_path=annotated_capture_path
+            )
             if len(detections) > 0:
                 # 
                 # Have the user specify a class of objects to look for. If there are none, list all objects
@@ -67,13 +78,27 @@ class ImagePoiFinder():
                     if len(matching_detections) > 0:
                         detections = matching_detections
                     else:
-                        self.TextToSpeech(f"{object_to_detect} is not in the object")
+                        self.TextToSpeech(f"'{object_to_detect}' is not in the image.")
                 self.TextToSpeech(f"{len(detections)} objects found in the image.")
+
+                self.TextToSpeech(f"Would you like to adjust the camera and take a new photo?")
+                take_another_image = self.SpeechToText()
+                if take_another_image == "yes":
+                    self.Run()
+                    return 0
+                else:
+                    self.TextToSpeech(f"Exiting program. Captures saved to {captures_dir}.")
+                    return 0
+
             else:
                 self.TextToSpeech("No objects found in the image. Would you like to take another image?")
                 take_another_image = self.SpeechToText()
                 if take_another_image == "yes":
                     self.Run()
+                    return 0
+                else:
+                    self.TextToSpeech(f"Exiting program. Captures saved to {captures_dir}.")
+                    return 0
             return 0
         except KeyboardInterrupt:
             return 0
