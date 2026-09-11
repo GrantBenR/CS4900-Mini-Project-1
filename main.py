@@ -1,99 +1,153 @@
+# * * * * * * * * * * * * * * * * * * #
+# EXTERNAL IMPORTS
+# * * * * * * * * * * * * * * * * * * #
 import cv2
 import pyttsx3
-from playsound import playsound
-import sounddevice as sd
-import speech_recognition as sr
-from ultralytics import YOLO
+import playsound
+import sounddevice
+import speech_recognition
+import ultralytics
 
+BEEP = str("assets/audio/beep.mp3")
 
-def capture_image(
-        camera_device_id: int = 0,
-        capture_path: str = "captured_frame.jpg"
-    ):
-    camera = cv2.VideoCapture(0)
+class ImagePoiFinder():
+    def __init__(self):
+        self.text_to_speech("During program, whenever prompted to speak, please wait until after the beep.")
+        self.text_to_speech("Would you like to capture image now?")
+        should_capture_now = self.speech_to_text()
+    
+        if should_capture_now.lower() == "yes":
+            self.capture_image()
+            self.text_to_speech("Image captured.")
+            self.text_to_speech("Detecting objects in the captured image.")
+            self.detect_objects()
+        
+        self.text_to_speech("What object do you want to detect?")
+        object_to_detect = self.speech_to_text()
+        if object_to_detect != "":
+            self.text_to_speech(f"You want to detect: {object_to_detect}")
 
-    success, frame = camera.read()
+    def capture_image(
+            self,
+            camera_device_id: int = 0,
+            capture_path: str = "assets/images/captured_frame.jpg"
+        ) -> int:
+        """Capture image from device
 
-    if success:
-        cv2.imwrite(capture_path, frame)
-    camera.release()
+        Args:
+            camera_device_id (int, optional): camera device id. Defaults to 0.
+            capture_path (str, optional): path to save capture to. Defaults to "captured_frame.jpg".
 
-    cv2.destroyAllWindows()
+        Returns:
+            int: _description_
+        """
+        return_code = 0
+        camera = cv2.VideoCapture(0)
 
-def detect_objects(
-        input_image_path: str = "captured_frame.jpg",
-        output_image_path: str = "annotated_image.jpg",
-        yolo_model: str = "yolov8n.pt"
-    ) -> str:
-    model = YOLO(
-        model=yolo_model
-    )
-    results = model(
-        source=input_image_path
-    )
-    return results[0].save(filename=output_image_path)
+        success, frame = camera.read()
 
-def text_to_speech(
-        text: str
-    ):
-    print(f"- {text}")
-    engine = pyttsx3.init()
-    engine.setProperty(
-        name="rate", 
-        value=150
-    )
-    engine.say(text)
-    engine.runAndWait()
+        if success:
+            cv2.imwrite(capture_path, frame)
+        else:
+            return_code = -1
+        camera.release()
 
-def speech_to_text(
-        sample_rate: int = 44100,
-        seconds: int = 3
-    ):
-    recognizer = sr.Recognizer()
+        cv2.destroyAllWindows()
+        return return_code
 
-    while True:
-        recording = sd.rec(
-            int(seconds * sample_rate),
-            samplerate=sample_rate,
-            channels=1,
-            dtype="int16"
+    def detect_objects(
+            self,
+            input_image_path: str = "assets/images/captured_frame.jpg",
+            output_image_path: str = "assets/images/annotated_image.jpg",
+            yolo_model: str = "yolov8n.pt"
+        ) -> str:
+        """Detect objects in image and return the image with bounding boxes
+
+        Args:
+            input_image_path (str, optional): path of image to detect. Defaults to "assets/images/captured_frame.jpg".
+            output_image_path (str, optional): path to output bounding box image to. Defaults to "assets/images/annotated_image.jpg".
+            yolo_model (str, optional): model to use for detection. Defaults to "yolov8n.pt".
+
+        Returns:
+            str: path of bb image
+        """
+        model = ultralytics.YOLO(
+            model=yolo_model
         )
-
-        playsound("assets/audio/beep.mp3")
-
-        sd.wait()
-
-        audio = sr.AudioData(
-            recording.tobytes(),
-            sample_rate,
-            2
+        results = model(
+            source=input_image_path
         )
+        return results[0].save(filename=output_image_path)
 
+    def text_to_speech(
+            self,
+            text: str
+        ) -> int:
+        """Convert text to speech
+
+        Args:
+            text (str): text to convert to speech
+
+        Returns:
+            int: return code. 0 if successful
+        """
         try:
-            text = recognizer.recognize_google(audio)
-            return text
+            print(f"- {text}")
+            engine = pyttsx3.init()
+            engine.setProperty(
+                name="rate", 
+                value=150
+            )
+            engine.say(text)
+            engine.runAndWait()
+            return 0
+        except Exception as e:
+            print(e)
+            return -1
 
-        except sr.UnknownValueError:
-            text_to_speech("Could not understand. Please speak again after the beep.")
+    def speech_to_text(
+            self,
+            sample_rate: int = 44100,
+            seconds: int = 3
+        ) -> str:
+        """Convert speech input to text
+
+        Args:
+            sample_rate (int, optional): sample rate for recording. Defaults to 44100.
+            seconds (int, optional): seconds for recording_. Defaults to 3.
+
+        Returns:
+            str: text string of speech input
+        """
+        recognizer = speech_recognition.Recognizer()
+
+        while True:
+            recording = sounddevice.rec(
+                int(seconds * sample_rate),
+                samplerate=sample_rate,
+                channels=1,
+                dtype="int16"
+            )
+
+            playsound.playsound(BEEP)
+
+            sounddevice.wait()
+
+            audio = speech_recognition.AudioData(
+                recording.tobytes(),
+                sample_rate,
+                2
+            )
+
+            try:
+                text = recognizer.recognize_google(audio)
+                return text
+
+            except speech_recognition.UnknownValueError:
+                self.text_to_speech("Could not understand. Please speak again after the beep.")
 
 def main():
-
-    text_to_speech("During program, whenever prompted to speak, please wait until after the beep.")
-    text_to_speech("Would you like to capture image now?")
-    text = speech_to_text()
-
-    if text.lower() == "yes":
-        capture_image()
-        text_to_speech("Image captured.")
-        text_to_speech("Detecting objects in the captured image.")
-        detect_objects()
-
-    text_to_speech("What object do you want to detect?")
-    text = speech_to_text()
-    if text != "":
-        text_to_speech(f"You want to detect: {text}")
-
-    
+    ImagePoiFinder()
 
 if __name__ == "__main__":
     main()
