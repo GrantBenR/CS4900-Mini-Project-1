@@ -74,13 +74,28 @@ class ImagePoiFinder():
                 self.TextToSpeech("What object do you want to detect?")
                 object_to_detect = self.SpeechToText()
                 if object_to_detect != "":
+                    # 
+                    # If the user says a label that is in the detections list, replace the full list with just the matches.
+                    # 
                     matching_detections = [d for d in detections if d.get(object_to_detect)]
                     if len(matching_detections) > 0:
                         detections = matching_detections
                     else:
                         self.TextToSpeech(f"'{object_to_detect}' is not in the image.")
+                
                 self.TextToSpeech(f"{len(detections)} objects found in the image.")
-
+                for detection in detections:
+                    label = detections["label"]
+                    quadrants = detections["quadrants"]
+                    top_left_percent = quadrants["top_left"]
+                    top_right_percent = quadrants["top_right"]
+                    bottom_left_percent = quadrants["bottom_left"]
+                    bottom_right_percent = quadrants["bottom_right"]
+                    if ((top_left_percent > 15) and (top_right_percent > 15) and (bottom_left_percent > 15) and (bottom_right_percent > 15)):
+                        self.TextToSpeech(f"There is a {label} at the center")
+                # 
+                # Ask if the user wants to take another capture
+                # 
                 self.TextToSpeech(f"Would you like to adjust the camera and take a new photo?")
                 take_another_image = self.SpeechToText()
                 if take_another_image == "yes":
