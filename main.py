@@ -246,13 +246,13 @@ class ImagePoiFinder():
         mid_y = img_height / 2.0
 
         if center_x < mid_x and center_y < mid_y:
-            return "top_left"
+            return "top left"
         elif center_x >= mid_x and center_y < mid_y:
-            return "top_right"
+            return "top right"
         elif center_x < mid_x and center_y >= mid_y:
-            return "bottom_left"
+            return "bottom left"
         else:
-            return "bottom_right"
+            return "bottom right"
         
     def GetBbQuadPercentages(
             self, 
