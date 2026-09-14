@@ -6,5 +6,3 @@ sounddevice
 SpeechRecognition 
 pyaudio
 playsound==1.2.2
-# GUI
-# kivymd

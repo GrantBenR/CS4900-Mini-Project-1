@@ -10,13 +10,180 @@ import ultralytics
 import os
 from datetime import datetime
 
+
+import tkinter
+from tkinter import scrolledtext
+from PIL import ImageTk, Image
+from PIL.ImageFile import ImageFile
+import threading
+
 BEEP = str("assets/audio/beep.mp3")
 
+
 class ImagePoiFinder():
-    def __init__(self):
-        print("# * * * * * * * * * * * * * * * * * * #")
-        print("# IMAGE POI FINDER")
-        print("# * * * * * * * * * * * * * * * * * * #")
+
+    def __init__(
+            self
+        ):
+        self.root = tkinter.Tk()
+        self.root.title("CS4900 - Image POI Finder")
+        # 
+        # Default window size
+        # 
+        self.root.geometry("700x700")
+        # 
+        # Set image properties
+        # 
+        self.current_raw_image = None 
+        self.last_window_width = 0
+        self.last_window_height = 0
+        self.image_label = tkinter.Label(
+            self.root, 
+            text="Awaiting Capture...", 
+            bg="black", 
+            fg="white"
+        )
+        #
+        # Make image responsive to changing window size
+        # 
+        self.image_label.pack(
+            padx=20, 
+            pady=20, 
+            fill=tkinter.BOTH, 
+            expand=True
+        )
+
+        # 
+        # Scrollable text output
+        # 
+        self.log_area = scrolledtext.ScrolledText(
+            self.root, 
+            wrap=tkinter.WORD, 
+            width=70, 
+            height=12
+        )
+        self.log_area.pack(
+            padx=20, 
+            pady=(0, 20), 
+            fill=tkinter.X
+        )
+        self.log_area.configure(
+            state='disabled', 
+            font=("Consolas", 10), 
+            bg="#1e1e1e", 
+            fg="#d4d4d4"
+        )
+        # 
+        # Bind window resize event
+        # 
+        self.root.bind(
+            sequence="<Configure>", 
+            func=self._on_window_resize
+        )
+
+        self.root.after_idle(
+            func=self._run_threaded
+        )
+        self.root.mainloop()
+
+    def blue(
+            self,
+            text: str
+        ) -> str:
+        return "\033[34m" + text + "\033[0m"
+
+    def _run_threaded(self):
+        """
+        """
+        threading.Thread(
+            target=self.Run, 
+            daemon=True
+        ).start()
+
+    
+    def PrintToGui(
+            self, 
+            text: str
+        ):
+        """Print text content to gui text field
+
+        Args:
+            text (str): text to print
+        """
+        self.log_area.configure(state='normal')
+        self.log_area.insert(tkinter.END, text + "\n")
+        self.log_area.see(tkinter.END) # Auto-scrolls to the bottom
+        self.log_area.configure(state='disabled')
+
+    def DisplayImageToGui(
+            self, 
+            image_path: str
+        ) -> None:
+        """Open image from path and render it to gui
+
+        Args:
+            image_path (str): path to image
+        """
+        def _update():
+            try:
+                if os.path.exists(image_path):
+                    self.current_raw_image = Image.open(image_path)
+                    self._render_scaled_image(
+                        image_to_render=self.current_raw_image
+                    )
+            except Exception as e:
+                self.PrintToGui(f"GUI Error loading image: {e}")
+
+        self.root.after(0, _update)
+
+    def _on_window_resize(
+            self, 
+            event
+        ) -> None:
+        """Fired on window movement and resizing."""
+        # Guard clause: Only trigger on root window events (ignore child widget events)
+        if event.widget != self.root:
+            return
+
+        # Guard clause: Prevent infinite loops by checking if dimensions actually changed
+        if (event.width == self.last_window_width and 
+            event.height == self.last_window_height):
+            return
+
+        self.last_window_width = event.width
+        self.last_window_height = event.height
+
+        # Re-render image if one is loaded
+        if self.current_raw_image is not None:
+            self._render_scaled_image(
+                image_to_render=self.current_raw_image
+            )
+
+    def _render_scaled_image(
+            self,
+            image_to_render: ImageFile
+        ):
+        """Rescales the current raw image to fit the label's current size."""
+        if image_to_render is None:
+            return
+
+        # Get current available dimensions of the label
+        target_w = max(self.image_label.winfo_width(), 100)
+        target_h = max(self.image_label.winfo_height(), 100)
+
+        # Make a copy of the original raw image to resize
+        img_copy = image_to_render.copy()
+        
+        # Scale while preserving aspect ratio
+        img_copy.thumbnail((target_w, target_h), Image.Resampling.LANCZOS)
+
+        self.photo = ImageTk.PhotoImage(
+            image=img_copy
+        )
+        self.image_label.configure(
+            image=self.photo, 
+            text=""
+        )
 
     def Run(
             self,
@@ -142,6 +309,8 @@ class ImagePoiFinder():
             if success:
                 print(capture_path)
                 cv2.imwrite(capture_path, frame)
+                self.root.after(0, self.DisplayImageToGui, capture_path)
+
             else:
                 return_code = -1
             camera.release()
@@ -178,6 +347,8 @@ class ImagePoiFinder():
             result = results[0]
 
             result.save(filename=output_image_path)
+
+            self.DisplayImageToGui(image_path=output_image_path)
 
             img_height, img_width = result.orig_shape
 
@@ -311,7 +482,9 @@ class ImagePoiFinder():
             int: return code. 0 if successful
         """
         try:
-            print(f"- {text}")
+            text_to_print = f"Assistant: {text}"
+            print(text_to_print)
+            self.PrintToGui(text_to_print)
             engine = pyttsx3.init()
             engine.setProperty(
                 name="rate", 
@@ -360,7 +533,11 @@ class ImagePoiFinder():
 
             try:
                 text = recognizer.recognize_google(audio)
-                return str(text).lower().strip()
+                text = str(text).lower().strip()
+                self.PrintToGui(
+                    text=f"> {text}"
+                )
+                return text
 
             except speech_recognition.UnknownValueError:
                 self.TextToSpeech("Could not understand. Please speak again after the beep.")
@@ -368,7 +545,6 @@ class ImagePoiFinder():
 def main():
     image_poi_finder = ImagePoiFinder()
     # image_poi_finder.DetectObjects(input_image_path="assets/images/doggie.png")
-    image_poi_finder.Run()
 
 if __name__ == "__main__":
     main()
