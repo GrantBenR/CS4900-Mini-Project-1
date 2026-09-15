@@ -13,7 +13,7 @@ from datetime import datetime
 
 import tkinter
 from tkinter import scrolledtext
-from PIL import ImageTk, Image
+from PIL import ImageTk, Image, ImageDraw
 from PIL.ImageFile import ImageFile
 import threading
 
@@ -117,17 +117,44 @@ class ImagePoiFinder():
 
     def DisplayImageToGui(
             self, 
-            image_path: str
+            image_path: str,
+            detections: list[dict] = None
         ) -> None:
-        """Open image from path and render it to gui
+        """Open image from path, mark detection center points, and render it to gui.
 
         Args:
             image_path (str): path to image
+            detections (list[dict], optional): list of detection dicts containing 'position' tuples
         """
         def _update():
             try:
                 if os.path.exists(image_path):
-                    self.current_raw_image = Image.open(image_path)
+                    img = Image.open(image_path)
+
+                    # Draw center points if detections are passed
+                    if detections:
+                        draw = ImageDraw.Draw(img)
+                        radius = 6  # Radius of the center marker dot
+
+                        for det in detections:
+                            pos = det.get("position")
+                            if pos:
+                                cx, cy = pos
+                                
+                                # # Option A: Solid circle with border
+                                # draw.ellipse(
+                                #     [cx - radius, cy - radius, cx + radius, cy + radius],
+                                #     fill="red",
+                                #     outline="yellow",
+                                #     width=2
+                                # )
+                                
+                                # Option B: Add crosshairs around the center point
+                                ch_len = 10 # Crosshair arm length
+                                draw.line([(cx - ch_len, cy), (cx + ch_len, cy)], fill="yellow", width=2)
+                                draw.line([(cx, cy - ch_len), (cx, cy + ch_len)], fill="yellow", width=2)
+
+                    self.current_raw_image = img
                     self._render_scaled_image(
                         image_to_render=self.current_raw_image
                     )
@@ -353,10 +380,6 @@ class ImagePoiFinder():
             
             result = results[0]
 
-            result.save(filename=output_image_path)
-
-            self.DisplayImageToGui(image_path=output_image_path)
-
             img_height, img_width = result.orig_shape
 
             detections = []
@@ -391,6 +414,12 @@ class ImagePoiFinder():
                     }
                 )
             print(detections)
+            result.save(filename=output_image_path)
+            
+            self.DisplayImageToGui(
+                image_path=output_image_path,
+                detections=detections
+            )
             return detections
         except Exception as e:
             return ""
