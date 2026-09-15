@@ -118,7 +118,8 @@ class ImagePoiFinder():
     def DisplayImageToGui(
             self, 
             image_path: str,
-            detections: list[dict] = None
+            detections: list[dict] = None,
+            center_ratio: float = 0.50
         ) -> None:
         """Open image from path, mark detection center points, and render it to gui.
 
@@ -130,27 +131,45 @@ class ImagePoiFinder():
             try:
                 if os.path.exists(image_path):
                     img = Image.open(image_path)
-
+                    #
                     # Draw center points if detections are passed
+                    #
                     if detections:
                         draw = ImageDraw.Draw(img)
-                        radius = 6  # Radius of the center marker dot
+                        img_width, img_height = img.size
+                        margin_x = (img_width * (1.0 - center_ratio)) / 2.0
+                        margin_y = (img_height * (1.0 - center_ratio)) / 2.0
+
+                        cx_min, cx_max = margin_x, img_width - margin_x
+                        cy_min, cy_max = margin_y, img_height - margin_y
+                        mid_x, mid_y = img_width / 2.0, img_height / 2.0
+
+                        line_color = "cyan"
+                        line_width = 2
+                        #
+                        # Draw Central Region Box
+                        #
+                        draw.rectangle(
+                            [cx_min, cy_min, cx_max, cy_max], 
+                            outline=line_color, 
+                            width=line_width
+                        )
+                        #
+                        # Draw Outer Quadrant Dividers
+                        #
+                        draw.line([(mid_x, 0), (mid_x, cy_min)], fill=line_color, width=line_width)          # Top divider
+                        draw.line([(mid_x, cy_max), (mid_x, img_height)], fill=line_color, width=line_width) # Bottom divider
+                        draw.line([(0, mid_y), (cx_min, mid_y)], fill=line_color, width=line_width)          # Left divider
+                        draw.line([(cx_max, mid_y), (img_width, mid_y)], fill=line_color, width=line_width)  # Right divider
 
                         for det in detections:
                             pos = det.get("position")
                             if pos:
                                 cx, cy = pos
-                                
-                                # # Option A: Solid circle with border
-                                # draw.ellipse(
-                                #     [cx - radius, cy - radius, cx + radius, cy + radius],
-                                #     fill="red",
-                                #     outline="yellow",
-                                #     width=2
-                                # )
-                                
-                                # Option B: Add crosshairs around the center point
-                                ch_len = 10 # Crosshair arm length
+                                #
+                                # crosshairs around the center point of bounding box
+                                # 
+                                ch_len = 10
                                 draw.line([(cx - ch_len, cy), (cx + ch_len, cy)], fill="yellow", width=2)
                                 draw.line([(cx, cy - ch_len), (cx, cy + ch_len)], fill="yellow", width=2)
 
@@ -247,7 +266,7 @@ class ImagePoiFinder():
             # 
             # Capture the image
             #
-            capture_time = datetime.now().strftime("%H_%M_%S")
+            capture_time = datetime.now().strftime("%y%m%d_%H%M%S")
             os.makedirs(name=captures_dir, exist_ok=True)
             capture_path = f"{captures_dir}/capture_{capture_time}.jpg"
             os.makedirs(name=annotations_dir, exist_ok=True)
@@ -429,32 +448,30 @@ class ImagePoiFinder():
             center_coords: list[int], 
             img_width: int, 
             img_height: int,
-            center_width: float = 0.3
+            center_ratio: float = 0.50
         ) -> str:
         center_x, center_y = center_coords
-        # 
-        # Define boundaries for center box
-        # 
-        center_x_min = img_width * (center_width * 2)
-        center_x_max = img_width * (center_width * 3)
-        center_y_min = img_height * (center_width * 2)
-        center_y_max = img_height * (center_width * 3)
-        # 
-        # Check if center point falls inside the center zone
-        # 
+
+        margin_x = (img_width * (1.0 - center_ratio)) / 2.0
+        margin_y = (img_height * (1.0 - center_ratio)) / 2.0
+
+        center_x_min = margin_x
+        center_x_max = img_width - margin_x
+        center_y_min = margin_y
+        center_y_max = img_height - margin_y
+        #
+        # Check if center point falls inside the expanded center zone
+        #
         if (center_x_min <= center_x <= center_x_max) and (
             center_y_min <= center_y <= center_y_max
         ):
             return "center"
-        # 
-        # Otherwise, assign based on standard quadrant midpoints
-        # 
+        #
+        # Otherwise, assign quadrant label based on frame midpoints
+        #
         mid_x = img_width / 2.0
         mid_y = img_height / 2.0
-        print(f"MID X: {mid_x}")
-        print(f"MID Y: {mid_y}")
-        print(f"CENTER X: {center_x}")
-        print(f"CENTER Y: {center_y}")
+
         if center_x < mid_x and center_y < mid_y:
             return "top left"
         elif center_x >= mid_x and center_y < mid_y:
