@@ -324,7 +324,7 @@ class ImagePoiFinder():
                     self.Run(label_to_target=object_to_detect)
                     return 0
                 else:
-                    self.TextToSpeech(f"Exiting program. Captures saved to {captures_dir}.")
+                    self.TextToSpeech(f"Exiting program. Image saved to file.")
                     return 0
             else:
                 self.TextToSpeech("No objects found in the image. Would you like to take another image?")
@@ -333,7 +333,7 @@ class ImagePoiFinder():
                     self.Run()
                     return 0
                 else:
-                    self.TextToSpeech(f"Exiting program. Images saved to file.")
+                    self.TextToSpeech(f"Exiting program. Image saved to file.")
                     return 0
             return 0
         except KeyboardInterrupt:
@@ -354,7 +354,7 @@ class ImagePoiFinder():
             capture_path (str, optional): path to save capture to. Defaults to "captured_frame.jpg".
 
         Returns:
-            int: _description_
+            int: return value
         """
         try:
             return_code = 0
