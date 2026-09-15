@@ -82,7 +82,7 @@ class ImagePoiFinder():
         )
 
         self.root.after_idle(
-            func=self._run_threaded
+            func=self._RunThreaded
         )
         self.root.mainloop()
 
@@ -92,7 +92,7 @@ class ImagePoiFinder():
         ) -> str:
         return "\033[34m" + text + "\033[0m"
 
-    def _run_threaded(self):
+    def _RunThreaded(self):
         """
         """
         threading.Thread(
@@ -393,7 +393,7 @@ class ImagePoiFinder():
             center_coords: list[int], 
             img_width: int, 
             img_height: int,
-            center_width: float = 0.2
+            center_width: float = 0.3
         ) -> str:
         center_x, center_y = center_coords
         # 
@@ -415,7 +415,10 @@ class ImagePoiFinder():
         # 
         mid_x = img_width / 2.0
         mid_y = img_height / 2.0
-
+        print(f"MID X: {mid_x}")
+        print(f"MID Y: {mid_y}")
+        print(f"CENTER X: {center_x}")
+        print(f"CENTER Y: {center_y}")
         if center_x < mid_x and center_y < mid_y:
             return "top left"
         elif center_x >= mid_x and center_y < mid_y:
