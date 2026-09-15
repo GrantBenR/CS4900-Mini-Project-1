@@ -234,13 +234,15 @@ class ImagePoiFinder():
     def Run(
             self,
             captures_dir: str = "images/captures",
-            annotations_dir: str = "images/annotated"
+            annotations_dir: str = "images/annotated",
+            label_to_target: str | None = None
         ) -> int:
         try:
             # 
             # Introduce how prompting is done
             # 
-            self.TextToSpeech("During program, whenever prompted to speak, please wait until after the beep.")
+            if not label_to_target:
+                self.TextToSpeech("During program, whenever prompted to speak, please wait until after the beep.")
             # 
             # Does the user want to capture an image now?
             # 
@@ -288,8 +290,11 @@ class ImagePoiFinder():
                 # 
                 # Have the user specify a class of objects to look for. If there are none, list all objects
                 # 
-                self.TextToSpeech("What object do you want to detect?")
-                object_to_detect = self.SpeechToText()
+                if not label_to_target:
+                    self.TextToSpeech("What object do you want to detect?")
+                    object_to_detect = self.SpeechToText()
+                else:
+                    object_to_detect = label_to_target
                 if object_to_detect != "":
                     # 
                     # If the user says a label that is in the detections list, replace the full list with just the matches.
@@ -298,12 +303,11 @@ class ImagePoiFinder():
                     for detection in detections:
                         if str(detection.get("label")) == object_to_detect:
                             matching_detections.append(detection)
-                        else:
-                            print(f"LABEL: {detection.get("label")}, INPUT: {object_to_detect}")
                     if len(matching_detections) > 0:
                         detections = matching_detections
                     else:
                         self.TextToSpeech(f"'{object_to_detect}' is not in the image.")
+                
                 if len(detections) == 1:
                     self.TextToSpeech(f"{len(detections)} object found in the image.")
                 else:
@@ -316,8 +320,8 @@ class ImagePoiFinder():
                 self.TextToSpeech(f"Would you like to adjust the camera and take a new photo?")
                 take_another_image = self.SpeechToText()
                 if take_another_image == "yes":
-                    self.TextToSpeech(f"Restarting. Captures saved to {captures_dir}.")
-                    self.Run()
+                    # self.TextToSpeech(f"Captures saved to {captures_dir}.")
+                    self.Run(label_to_target=object_to_detect)
                     return 0
                 else:
                     self.TextToSpeech(f"Exiting program. Captures saved to {captures_dir}.")
@@ -326,11 +330,10 @@ class ImagePoiFinder():
                 self.TextToSpeech("No objects found in the image. Would you like to take another image?")
                 take_another_image = self.SpeechToText()
                 if take_another_image == "yes":
-                    self.TextToSpeech(f"Restarting. Captures saved to {captures_dir}.")
                     self.Run()
                     return 0
                 else:
-                    self.TextToSpeech(f"Exiting program. Captures saved to {captures_dir}.")
+                    self.TextToSpeech(f"Exiting program. Images saved to file.")
                     return 0
             return 0
         except KeyboardInterrupt:
@@ -473,13 +476,13 @@ class ImagePoiFinder():
         mid_y = img_height / 2.0
 
         if center_x < mid_x and center_y < mid_y:
-            return "top left"
+            return "top left. Move the camera up and right."
         elif center_x >= mid_x and center_y < mid_y:
-            return "top right"
+            return "top right. Move the camera up and left."
         elif center_x < mid_x and center_y >= mid_y:
-            return "bottom left"
+            return "bottom left. Move the camera down and right."
         else:
-            return "bottom right"
+            return "bottom right. Move the camera down and left."
         
     def GetBbQuadPercentages(
             self, 
