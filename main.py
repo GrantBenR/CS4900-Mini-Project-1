@@ -301,7 +301,7 @@ class ImagePoiFinder():
                     # 
                     matching_detections = []
                     for detection in detections:
-                        if str(detection.get("label")) == object_to_detect:
+                        if str(detection.get("label")) in object_to_detect:
                             matching_detections.append(detection)
                     if len(matching_detections) > 0:
                         detections = matching_detections
