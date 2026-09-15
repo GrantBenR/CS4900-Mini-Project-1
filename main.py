@@ -254,7 +254,7 @@ class ImagePoiFinder():
                 # 
                 # If the user answers yes, then break
                 # 
-                if should_capture_now == "yes":
+                if "yes" in should_capture_now:
                     user_has_confirmed = True
                 # 
                 # If the user doesn't answer yes, after 5 fails exit the program
@@ -319,7 +319,7 @@ class ImagePoiFinder():
                 # 
                 self.TextToSpeech(f"Would you like to adjust the camera and take a new photo?")
                 take_another_image = self.SpeechToText()
-                if take_another_image == "yes":
+                if "yes" in take_another_image:
                     # self.TextToSpeech(f"Captures saved to {captures_dir}.")
                     self.Run(label_to_target=object_to_detect)
                     return 0
@@ -329,7 +329,7 @@ class ImagePoiFinder():
             else:
                 self.TextToSpeech("No objects found in the image. Would you like to take another image?")
                 take_another_image = self.SpeechToText()
-                if take_another_image == "yes":
+                if "yes" in take_another_image:
                     self.Run()
                     return 0
                 else:
@@ -498,7 +498,7 @@ class ImagePoiFinder():
                 "top_left": 0.0,
                 "top_right": 0.0,
                 "bottom_left": 0.0,
-                "bottom_right": 0.0,
+                "bottom_right": 0.0
             }
 
         mid_x = img_width / 2.0
