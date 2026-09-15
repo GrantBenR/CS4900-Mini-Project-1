@@ -78,7 +78,7 @@ class ImagePoiFinder():
         # 
         self.root.bind(
             sequence="<Configure>", 
-            func=self._on_window_resize
+            func=self._OnWindowResize
         )
 
         self.root.after_idle(
@@ -136,7 +136,7 @@ class ImagePoiFinder():
 
         self.root.after(0, _update)
 
-    def _on_window_resize(
+    def _OnWindowResize(
             self, 
             event
         ) -> None:
@@ -248,7 +248,12 @@ class ImagePoiFinder():
                     # 
                     # If the user says a label that is in the detections list, replace the full list with just the matches.
                     # 
-                    matching_detections = [d for d in detections if d.get(object_to_detect)]
+                    matching_detections = []
+                    for detection in detections:
+                        if str(detection.get("label")) == object_to_detect:
+                            matching_detections.append(detection)
+                        else:
+                            print(f"LABEL: {detection.get("label")}, INPUT: {object_to_detect}")
                     if len(matching_detections) > 0:
                         detections = matching_detections
                     else:
@@ -265,6 +270,7 @@ class ImagePoiFinder():
                 self.TextToSpeech(f"Would you like to adjust the camera and take a new photo?")
                 take_another_image = self.SpeechToText()
                 if take_another_image == "yes":
+                    self.TextToSpeech(f"Restarting. Captures saved to {captures_dir}.")
                     self.Run()
                     return 0
                 else:
@@ -274,6 +280,7 @@ class ImagePoiFinder():
                 self.TextToSpeech("No objects found in the image. Would you like to take another image?")
                 take_another_image = self.SpeechToText()
                 if take_another_image == "yes":
+                    self.TextToSpeech(f"Restarting. Captures saved to {captures_dir}.")
                     self.Run()
                     return 0
                 else:
